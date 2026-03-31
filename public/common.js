@@ -34,6 +34,27 @@ function cardHTML(item) {
     : '<div class="card-img-wrap"><span>🎬</span></div>';
 
   var meta = '';
+  if (item.status || id) {
+    var watched = '';
+    if (id) {
+      try {
+        var lastTitle = localStorage.getItem('lastep_' + id + '_title');
+        if (lastTitle) watched = lastTitle;
+      } catch(e) {}
+    }
+    var statusHtml = '';
+    if (item.status && watched) {
+      statusHtml = '<div class="card-status">'
+        + '<span>' + item.status + '</span>'
+        + '<span class="card-watched">看到 ' + watched + '</span>'
+        + '</div>';
+    } else if (item.status) {
+      statusHtml = '<div class="card-status">' + item.status + '</div>';
+    } else if (watched) {
+      statusHtml = '<div class="card-status"><span class="card-watched">看到 ' + watched + '</span></div>';
+    }
+    meta += statusHtml;
+  }
   if (item.actors) meta += '<div class="card-actors">' + item.actors.split(/\s+/).slice(0, 3).join(' · ') + '</div>';
 
   return '<a class="card" href="/detail?id=' + id + '">'

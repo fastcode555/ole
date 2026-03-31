@@ -65,12 +65,15 @@ app.get('/api/home', async (req, res) => {
         const href = a.attr('href') || '';
         const t = a.attr('title') || '';
         const img = a.attr('data-original') || a.attr('data-src') || '';
-        const score = a.find('span.text_right').text().trim();
+        const rawScore = a.find('span.text_right').text().trim();
+        const scoreMatch = rawScore.match(/^[\d.]+/);
+        const score = scoreMatch ? scoreMatch[0] : '';
+        const status = rawScore.replace(/^[\d.]+/, '').trim();
         const hot = a.find('span:last-child').text().replace(/\s/g, '').replace(/[^\d]/g, '');
         const quality = a.find('em.voddate_year').last().text().trim();
         const actors = $(li).find('.vodlist_sub').text().trim().replace(/\s+/g, ' ');
         if (!href.includes('/vod/detail/') || isAd(href) || !t) return;
-        items.push({ title: t, url: href, img, score, hot, quality, actors });
+        items.push({ title: t, url: href, img, score, status, hot, quality, actors });
       });
 
       sections[title] = dedup(items).slice(0, 12);
@@ -100,8 +103,11 @@ app.get('/api/list', async (req, res) => {
       const href = a.attr('href') || '';
       const title = a.attr('title') || '';
       const img = a.attr('data-original') || a.attr('data-src') || '';
-      // 评分：右上角 span
-      const score = a.find('span.text_right').text().trim();
+      // 评分和更新状态混在同一个 span，用正则拆开
+      const rawScore = a.find('span.text_right').text().trim();
+      const scoreMatch = rawScore.match(/^[\d.]+/);
+      const score = scoreMatch ? scoreMatch[0] : '';
+      const status = rawScore.replace(/^[\d.]+/, '').trim();
       // 热度：左下角播放量
       const hot = a.find('span:last-child').text().replace(/\s/g, '').replace(/[^\d]/g, '');
       // 清晰度
@@ -109,7 +115,7 @@ app.get('/api/list', async (req, res) => {
       // 演员
       const actors = $(li).find('.vodlist_sub').text().trim().replace(/\s+/g, ' ');
       if (!href.includes('/vod/detail/') || isAd(href) || !title) return;
-      items.push({ title, url: href, img, score, hot, quality, actors });
+      items.push({ title, url: href, img, score, status, hot, quality, actors });
     });
 
     const totalMatch = $('body').text().match(/\u5171(\d+)\u6761/);

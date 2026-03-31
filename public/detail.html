@@ -22,7 +22,7 @@
 
     var PROGRESS_KEY = 'progress_' + id;
     var LAST_EP_KEY  = 'lastep_' + id;
-    var SKIP_KEY     = 'skip_settings'; // { intro: 秒, outro: 秒 }
+    var SKIP_KEY     = 'skip_' + id; // 按剧id单独存储
 
     function loadProgress() {
       try { return JSON.parse(localStorage.getItem(PROGRESS_KEY)) || {}; } catch(e) { return {}; }
@@ -31,7 +31,12 @@
       try { localStorage.setItem(PROGRESS_KEY, JSON.stringify({ epIdx: epIdx, time: time })); } catch(e) {}
     }
     function saveLastEp(epIdx) {
-      try { localStorage.setItem(LAST_EP_KEY, epIdx); } catch(e) {}
+      try {
+        localStorage.setItem(LAST_EP_KEY, epIdx);
+        // 同时保存集数标题，供首页/列表卡片展示
+        var ep = _episodes[epIdx];
+        if (ep) localStorage.setItem(LAST_EP_KEY + '_title', ep.title);
+      } catch(e) {}
     }
     function getLastEp() {
       var v = localStorage.getItem(LAST_EP_KEY);
@@ -311,6 +316,25 @@
       return pad(m) + ':' + pad(sec);
     }
     function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+    // 键盘快捷键
+    document.addEventListener('keydown', function(e) {
+      // 输入框内不触发
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      var video = document.getElementById('videoEl');
+      if (!video || !video.src) return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        video.paused ? video.play() : video.pause();
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        video.currentTime = Math.min(video.currentTime + 10, video.duration || 0);
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        video.currentTime = Math.max(video.currentTime - 10, 0);
+      }
+    });
   </script>
 </body>
 </html>

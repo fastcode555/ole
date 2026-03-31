@@ -205,6 +205,23 @@ main { padding: 24px; max-width: 1400px; margin: 0 auto; }
   color: #e0e0e0;
 }
 
+.card-status {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.card-watched {
+  color: #e50914;
+  flex-shrink: 0;
+}
+
 .card-actors {
   font-size: 11px;
   color: #888;
