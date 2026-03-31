@@ -4,13 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>搜索 - 影视</title>
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/style.css?v=2">
 </head>
 <body>
   <header id="header"></header>
   <main id="app"><div class="loading">搜索中...</div></main>
 
-  <script src="/common.js"></script>
+  <script src="/common.js?v=2"></script>
   <script>
     var params = new URLSearchParams(location.search);
     var q = params.get('q') || '';
@@ -39,10 +39,10 @@
             html += paginationHTML(page, null, '/search?q=' + encodeURIComponent(q));
           }
           document.getElementById('app').innerHTML = html;
-        }).catch(function(e) {
-          document.getElementById('app').innerHTML = '<div class="loading">搜索失败：' + e.message + '</div>';
+          sortByFav(document.querySelector('.grid'));
         });
     }
   </script>
 </body>
 </html>
+

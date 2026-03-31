@@ -194,22 +194,29 @@ app.get('/api/search', async (req, res) => {
     const $ = cheerio.load(html);
     const items = [];
 
-    $('li.vodlist_item').each((_, li) => {
+    $('li.searchlist_item').each((_, li) => {
       const a = $(li).find('a.vodlist_thumb').first();
       const href = a.attr('href') || '';
       const title = a.attr('title') || '';
-      const img = a.attr('data-original') || '';
+      const img = a.attr('data-original') || a.attr('data-src') || '';
+      const rawScore = a.find('span.text_right').text().trim();
+      const scoreMatch = rawScore.match(/^[\d.]+/);
+      const score = scoreMatch ? scoreMatch[0] : '';
+      const status = rawScore.replace(/^[\d.]+/, '').trim()
+        || a.find('.pic_text').text().trim();
+      const actors = $(li).find('.vodlist_sub').first().text().trim().replace(/\s+/g, ' ');
       if (!href.includes('/vod/detail/') || isAd(href) || !title) return;
-      items.push({ title, url: href, img, tag: '' });
+      items.push({ title, url: href, img, score, status, actors });
     });
 
     // fallback
     if (items.length === 0) {
-      $('a[href*="/vod/detail/"]').each((_, a) => {
+      $('a.vodlist_thumb[href*="/vod/detail/"]').each((_, a) => {
         const href = $(a).attr('href') || '';
-        const title = $(a).attr('title') || $(a).text().trim();
-        if (isAd(href) || !title || title.length < 2) return;
-        items.push({ title, url: href, img: '', tag: '' });
+        const title = $(a).attr('title') || '';
+        const img = $(a).attr('data-original') || '';
+        if (isAd(href) || !title) return;
+        items.push({ title, url: href, img, score: '', status: '', actors: '' });
       });
     }
 

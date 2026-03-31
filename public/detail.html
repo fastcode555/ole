@@ -4,242 +4,189 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>详情 - 影视</title>
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/style.css?v=2">
 </head>
 <body>
   <header id="header"></header>
   <main id="app"><div class="loading">加载中...</div></main>
-
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
-  <script src="/common.js"></script>
+  <script src="/common.js?v=2"></script>
   <script>
     var params = new URLSearchParams(location.search);
     var id = params.get('id');
-    var _episodes = [];
-    var _hls = null;
-    var _currentEpIdx = -1;
-    var _saveTimer = null;
-
+    var _episodes = [], _hls = null, _currentEpIdx = -1, _saveTimer = null;
     var PROGRESS_KEY = 'progress_' + id;
     var LAST_EP_KEY  = 'lastep_' + id;
-    var SKIP_KEY     = 'skip_' + id; // 按剧id单独存储
+    var SKIP_KEY     = 'skip_' + id;
 
-    function loadProgress() {
-      try { return JSON.parse(localStorage.getItem(PROGRESS_KEY)) || {}; } catch(e) { return {}; }
+    function getFavs() { try { return JSON.parse(localStorage.getItem('favorites')) || []; } catch(e) { return []; } }
+    function isFav(vid) { return getFavs().indexOf(vid) !== -1; }
+    function toggleFav() {
+      var favs = getFavs(), idx = favs.indexOf(id);
+      if (idx === -1) favs.push(id); else favs.splice(idx, 1);
+      try { localStorage.setItem('favorites', JSON.stringify(favs)); } catch(e) {}
+      var btn = document.getElementById('favBtn');
+      if (btn) btn.textContent = isFav(id) ? '❤️ 已喜欢' : '🤍 喜欢';
     }
-    function saveProgress(epIdx, time) {
-      try { localStorage.setItem(PROGRESS_KEY, JSON.stringify({ epIdx: epIdx, time: time })); } catch(e) {}
-    }
+    function loadProgress() { try { return JSON.parse(localStorage.getItem(PROGRESS_KEY)) || {}; } catch(e) { return {}; } }
+    function saveProgress(epIdx, time) { try { localStorage.setItem(PROGRESS_KEY, JSON.stringify({epIdx:epIdx,time:time})); } catch(e) {} }
     function saveLastEp(epIdx) {
       try {
         localStorage.setItem(LAST_EP_KEY, epIdx);
-        // 同时保存集数标题，供首页/列表卡片展示
         var ep = _episodes[epIdx];
-        if (ep) {
-          // 电影只有"播放"一集，不存标题，改存进度时间（在loadVideo里更新）
-          var isMovie = (_episodes.length === 1 && ep.title === '播放');
-          if (!isMovie) localStorage.setItem(LAST_EP_KEY + '_title', ep.title);
-        }
+        if (ep && !(_episodes.length === 1 && ep.title === '播放')) localStorage.setItem(LAST_EP_KEY + '_title', ep.title);
       } catch(e) {}
     }
-    function getLastEp() {
-      var v = localStorage.getItem(LAST_EP_KEY);
-      return v !== null ? parseInt(v) : -1;
-    }
-    function getSkip() {
-      try { return JSON.parse(localStorage.getItem(SKIP_KEY)) || { intro: 0, outro: 0 }; } catch(e) { return { intro: 0, outro: 0 }; }
-    }
-    function saveSkip(intro, outro) {
-      try { localStorage.setItem(SKIP_KEY, JSON.stringify({ intro: intro, outro: outro })); } catch(e) {}
-    }
+    function getLastEp() { var v = localStorage.getItem(LAST_EP_KEY); return v !== null ? parseInt(v) : -1; }
+    function getSkip() { try { return JSON.parse(localStorage.getItem(SKIP_KEY)) || {intro:0,outro:0}; } catch(e) { return {intro:0,outro:0}; } }
+    function saveSkip(i, o) { try { localStorage.setItem(SKIP_KEY, JSON.stringify({intro:i,outro:o})); } catch(e) {} }
 
     renderHeader(null);
 
     if (!id) {
       document.getElementById('app').innerHTML = '<div class="loading">缺少参数</div>';
     } else {
-      fetch('/api/detail?id=' + id)
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-          document.title = d.title + ' - 影视';
-          _episodes = (d.episodes || []).slice().reverse();
+      fetch('/api/detail?id=' + id).then(function(r) { return r.json(); }).then(function(d) {
+        document.title = d.title + ' - 影视';
+        _episodes = (d.episodes || []).slice().reverse();
+        var epCount = _episodes.length;
+        var progress = loadProgress();
+        var lastEp = progress.epIdx !== undefined ? progress.epIdx : getLastEp();
+        var skip = getSkip();
 
-          var coverEl = d.cover
-            ? '<img class="detail-cover" src="' + d.cover + '" onerror="this.style.display=\'none\'" alt="">'
-            : '<div class="detail-cover-placeholder">🎬</div>';
+        var coverEl = d.cover
+          ? '<img class="detail-cover" src="' + d.cover + '" onerror="this.style.display=\'none\'" alt="">'
+          : '<div class="detail-cover-placeholder">🎬</div>';
 
-          var epCount = _episodes.length;
-          var progress = loadProgress();
-          var lastEp = progress.epIdx !== undefined ? progress.epIdx : getLastEp();
-          var skip = getSkip();
+        var epBtns = _episodes.map(function(ep, i) {
+          var isLast = (i === lastEp);
+          return '<button class="ep-btn' + (isLast ? ' last-watched' : '') + '" id="ep_' + i + '" onclick="playEp(' + i + ')">' + ep.title + (isLast ? ' ▶' : '') + '</button>';
+        }).join('');
 
-          var epBtns = _episodes.map(function(ep, i) {
-            var isLast = (i === lastEp);
-            var cls = 'ep-btn' + (isLast ? ' last-watched' : '');
-            var label = ep.title + (isLast ? ' ▶' : '');
-            return '<button class="' + cls + '" id="ep_' + i + '" onclick="playEp(' + i + ')">' + label + '</button>';
-          }).join('');
+        var epSection = epCount > 0
+          ? '<div class="episodes-title">播放列表（' + epCount + (epCount === 1 ? '部' : '集') + '）'
+            + (lastEp >= 0 ? '<span class="last-ep-hint">上次看到：' + (_episodes[lastEp] && _episodes[lastEp].title) + '</span>' : '')
+            + '</div><div class="episodes" id="epList">' + epBtns + '</div>'
+          : '';
 
-          var epSection = epCount > 0
-            ? '<div class="episodes-title">播放列表（' + epCount + (epCount === 1 ? '部' : '集') + '）'
-              + (lastEp >= 0 ? '<span class="last-ep-hint">上次看到：' + (_episodes[lastEp] && _episodes[lastEp].title) + '</span>' : '')
-              + '</div><div class="episodes" id="epList">' + epBtns + '</div>'
-            : '';
+        var html = '<div class="detail-layout">'
+          + '<div class="detail-left">'
+          + '<div class="player-wrap" id="playerWrap"><video id="videoEl" controls playsinline></video></div>'
+          + '<div class="player-controls">'
+          + '<button class="ctrl-btn" onclick="playPrev()" id="btnPrev">⏮ 上一集</button>'
+          + '<div id="playerMsg" class="player-msg"></div>'
+          + '<button class="ctrl-btn" onclick="togglePiP()">⧉ 悬浮窗</button>'
+          + '<button class="ctrl-btn" onclick="toggleFloat()" id="btnFloat">⊡ 固定</button>'
+          + '<button class="ctrl-btn" onclick="playNext()" id="btnNext">下一集 ⏭</button>'
+          + '</div>'
+          + '<div class="skip-settings">'
+          + '<span class="skip-label">片头跳过</span>'
+          + '<span class="skip-val" id="introVal">' + (skip.intro > 0 ? formatTime(skip.intro) : '未设置') + '</span>'
+          + '<button class="skip-mark-btn" onclick="markIntro()">▶ 标记片头结束</button>'
+          + '<span class="skip-label" style="margin-left:12px">片尾跳过</span>'
+          + '<span class="skip-val" id="outroVal">' + (skip.outro > 0 ? formatTime(skip.outro) + ' 前' : '未设置') + '</span>'
+          + '<button class="skip-mark-btn" onclick="markOutro()">⏹ 标记片尾开始</button>'
+          + '<button class="skip-clear-btn" onclick="clearSkip()">清除</button>'
+          + '<span id="skipMsg" style="font-size:12px;color:#4caf50;margin-left:8px"></span>'
+          + '<div class="skip-manual">片头 <input class="skip-input" id="skipIntroInput" type="number" min="0" max="600" value="' + skip.intro + '"> 秒'
+          + '<span style="margin:0 6px;color:#555">|</span>'
+          + '片尾 <input class="skip-input" id="skipOutroInput" type="number" min="0" max="600" value="' + skip.outro + '"> 秒'
+          + '<button class="skip-save-btn" onclick="applyManual()">应用</button></div>'
+          + '</div>'
+          + '</div>'
+          + '<div class="detail-right">'
+          + coverEl
+          + '<h1 class="detail-title">' + d.title + '</h1>'
+          + '<div class="detail-actions">'
+          + (d.score ? '<span class="detail-score">' + d.score + '</span>' : '')
+          + '<button class="fav-btn" id="favBtn" onclick="toggleFav()">' + (isFav(id) ? '❤️ 已喜欢' : '🤍 喜欢') + '</button>'
+          + '</div>'
+          + '<p class="detail-desc">' + (d.desc || '暂无简介') + '</p>'
+          + '</div>'
+          + '</div>'
+          + epSection;
 
-          var html =
-            // 播放器 + 上下集控制条
-            '<div class="player-wrap" id="playerWrap">'
-            + '<video id="videoEl" controls playsinline></video>'
-            + '</div>'
-            + '<div class="player-controls">'
-            + '<button class="ctrl-btn" onclick="playPrev()" id="btnPrev">⏮ 上一集</button>'
-            + '<div id="playerMsg" class="player-msg"></div>'
-            + '<button class="ctrl-btn" onclick="playNext()" id="btnNext">下一集 ⏭</button>'
-            + '</div>'
-            // 跳过设置
-            + '<div class="skip-settings" id="skipSettings">'
-            + '<span class="skip-label">片头跳过</span>'
-            + '<span class="skip-val" id="introVal">' + (skip.intro > 0 ? formatTime(skip.intro) : '未设置') + '</span>'
-            + '<button class="skip-mark-btn" onclick="markIntro()">▶ 标记当前为片头结束</button>'
-            + '<span class="skip-label" style="margin-left:16px">片尾跳过</span>'
-            + '<span class="skip-val" id="outroVal">' + (skip.outro > 0 ? formatTime(skip.outro) + ' 前' : '未设置') + '</span>'
-            + '<button class="skip-mark-btn" onclick="markOutro()">⏹ 标记当前为片尾开始</button>'
-            + '<button class="skip-clear-btn" onclick="clearSkip()">清除</button>'
-            + '<span id="skipMsg" style="font-size:12px;color:#4caf50;margin-left:8px"></span>'
-            + '<div class="skip-manual">'
-            + '片头 <input class="skip-input" id="skipIntroInput" type="number" min="0" max="600" value="' + skip.intro + '"> 秒'
-            + '<span style="margin:0 8px;color:#555">|</span>'
-            + '片尾 <input class="skip-input" id="skipOutroInput" type="number" min="0" max="600" value="' + skip.outro + '"> 秒'
-            + '<button class="skip-save-btn" onclick="applyManual()">应用</button>'
-            + '</div>'
-            + '</div>'
-            + epSection
-            + '<div class="detail-header">' + coverEl
-            + '<div class="detail-meta"><h1>' + d.title + '</h1>'
-            + (d.score ? '<span class="detail-score">' + d.score + '</span>' : '')
-            + '<p class="detail-desc">' + (d.desc || '暂无简介') + '</p>'
-            + '</div></div>';
+        document.getElementById('app').innerHTML = html;
+        updateNavBtns();
 
-          document.getElementById('app').innerHTML = html;
-          updateNavBtns();
-
-          if (lastEp >= 0) {
-            var lastBtn = document.getElementById('ep_' + lastEp);
-            if (lastBtn) lastBtn.scrollIntoView({ block: 'nearest', inline: 'center' });
-            playEp(lastEp, true);
-          } else if (_episodes.length > 0) {
-            playEp(_episodes.length - 1, true);
-          }
-        }).catch(function(e) {
-          document.getElementById('app').innerHTML = '<div class="loading">加载失败：' + e.message + '</div>';
-        });
+        if (lastEp >= 0) {
+          var lb = document.getElementById('ep_' + lastEp);
+          if (lb) lb.scrollIntoView({ block: 'nearest', inline: 'center' });
+          playEp(lastEp, true);
+        } else if (_episodes.length > 0) {
+          playEp(_episodes.length - 1, true);
+        }
+      }).catch(function(e) {
+        document.getElementById('app').innerHTML = '<div class="loading">加载失败：' + e.message + '</div>';
+      });
     }
 
     function updateNavBtns() {
-      var prev = document.getElementById('btnPrev');
-      var next = document.getElementById('btnNext');
-      if (!prev || !next) return;
-      // 倒序列表：idx 0 = 最新集，idx length-1 = 第1集
-      // 上一集 = 更旧 = idx+1；下一集 = 更新 = idx-1
-      prev.disabled = (_currentEpIdx >= _episodes.length - 1);
-      next.disabled = (_currentEpIdx <= 0);
+      var prev = document.getElementById('btnPrev'), next = document.getElementById('btnNext');
+      if (prev) prev.disabled = (_currentEpIdx >= _episodes.length - 1);
+      if (next) next.disabled = (_currentEpIdx <= 0);
     }
-
-    function playPrev() {
-      if (_currentEpIdx < _episodes.length - 1) playEp(_currentEpIdx + 1);
-    }
-    function playNext() {
-      if (_currentEpIdx > 0) playEp(_currentEpIdx - 1);
-    }
+    function playPrev() { if (_currentEpIdx < _episodes.length - 1) playEp(_currentEpIdx + 1); }
+    function playNext() { if (_currentEpIdx > 0) playEp(_currentEpIdx - 1); }
 
     function markIntro() {
-      var video = document.getElementById('videoEl');
-      if (!video || !video.src) { showSkipMsg('请先加载视频'); return; }
-      var t = Math.floor(video.currentTime);
+      var v = document.getElementById('videoEl');
+      if (!v || !v.src) { showSkipMsg('请先加载视频'); return; }
+      var t = Math.floor(v.currentTime);
       if (t <= 0) { showSkipMsg('请先拖动到片头结束位置'); return; }
-      var skip = getSkip();
-      saveSkip(t, skip.outro);
-      updateSkipUI(t, skip.outro);
-      showSkipMsg('片头设为 ' + formatTime(t));
+      var s = getSkip(); saveSkip(t, s.outro); updateSkipUI(t, s.outro); showSkipMsg('片头设为 ' + formatTime(t));
     }
-
     function markOutro() {
-      var video = document.getElementById('videoEl');
-      if (!video || !video.src) { showSkipMsg('请先加载视频'); return; }
-      if (!video.duration || video.duration === Infinity) { showSkipMsg('视频时长未知，请稍候'); return; }
-      var remaining = Math.floor(video.duration - video.currentTime);
-      if (remaining <= 0) { showSkipMsg('请先拖动到片尾开始位置'); return; }
-      var skip = getSkip();
-      saveSkip(skip.intro, remaining);
-      updateSkipUI(skip.intro, remaining);
-      showSkipMsg('片尾设为最后 ' + formatTime(remaining));
+      var v = document.getElementById('videoEl');
+      if (!v || !v.src) { showSkipMsg('请先加载视频'); return; }
+      if (!v.duration || v.duration === Infinity) { showSkipMsg('视频时长未知，请稍候'); return; }
+      var r = Math.floor(v.duration - v.currentTime);
+      if (r <= 0) { showSkipMsg('请先拖动到片尾开始位置'); return; }
+      var s = getSkip(); saveSkip(s.intro, r); updateSkipUI(s.intro, r); showSkipMsg('片尾设为最后 ' + formatTime(r));
     }
-
-    function clearSkip() {
-      saveSkip(0, 0);
-      updateSkipUI(0, 0);
-      showSkipMsg('已清除');
-    }
-
+    function clearSkip() { saveSkip(0, 0); updateSkipUI(0, 0); showSkipMsg('已清除'); }
     function applyManual() {
-      var intro = parseInt(document.getElementById('skipIntroInput').value) || 0;
-      var outro = parseInt(document.getElementById('skipOutroInput').value) || 0;
-      saveSkip(intro, outro);
-      updateSkipUI(intro, outro);
-      showSkipMsg('已应用');
+      var i = parseInt(document.getElementById('skipIntroInput').value) || 0;
+      var o = parseInt(document.getElementById('skipOutroInput').value) || 0;
+      saveSkip(i, o); updateSkipUI(i, o); showSkipMsg('已应用');
     }
-
     function updateSkipUI(intro, outro) {
-      var iv = document.getElementById('introVal');
-      var ov = document.getElementById('outroVal');
-      var ii = document.getElementById('skipIntroInput');
-      var oi = document.getElementById('skipOutroInput');
+      var iv = document.getElementById('introVal'), ov = document.getElementById('outroVal');
+      var ii = document.getElementById('skipIntroInput'), oi = document.getElementById('skipOutroInput');
       if (iv) iv.textContent = intro > 0 ? formatTime(intro) : '未设置';
       if (ov) ov.textContent = outro > 0 ? formatTime(outro) + ' 前' : '未设置';
       if (ii) ii.value = intro;
       if (oi) oi.value = outro;
     }
-
     function showSkipMsg(text) {
       var msg = document.getElementById('skipMsg');
-      if (!msg) return;
-      msg.textContent = text;
-      setTimeout(function() { msg.textContent = ''; }, 2500);
+      if (msg) { msg.textContent = text; setTimeout(function() { msg.textContent = ''; }, 2500); }
     }
 
     function playEp(idx, pauseAfterLoad) {
       var ep = _episodes[idx];
       if (!ep) return;
-
       _currentEpIdx = idx;
       saveLastEp(idx);
       updateNavBtns();
-
       document.querySelectorAll('.ep-btn').forEach(function(b) {
         b.classList.remove('active', 'last-watched');
         b.textContent = b.textContent.replace(' ▶', '');
       });
       var btn = document.getElementById('ep_' + idx);
       if (btn) { btn.classList.add('active'); btn.scrollIntoView({ block: 'nearest', inline: 'center' }); }
-
       var msg = document.getElementById('playerMsg');
       if (msg) msg.textContent = '加载视频源...';
-
       var playPath = ep.url.replace('https://www.olehdtv.com', '');
       fetch('/api/video-src?path=' + encodeURIComponent(playPath))
         .then(function(r) { return r.json(); })
         .then(function(data) {
-          if (data.error || !data.src) {
-            if (msg) msg.textContent = '无法获取视频源';
-            return;
-          }
+          if (data.error || !data.src) { if (msg) msg.textContent = '无法获取视频源'; return; }
           if (msg) msg.textContent = '';
           var progress = loadProgress();
           var resumeTime = (progress.epIdx === idx && progress.time > 5) ? progress.time : 0;
           loadVideo(data.src, resumeTime, pauseAfterLoad);
-        }).catch(function(e) {
-          if (msg) msg.textContent = '加载失败：' + e.message;
-        });
+        }).catch(function(e) { if (msg) msg.textContent = '加载失败：' + e.message; });
     }
 
     function loadVideo(src, resumeTime, pauseAfterLoad) {
@@ -250,8 +197,6 @@
 
       function onReady() {
         var skip = getSkip();
-
-        // 跳过片头
         if (skip.intro > 0 && resumeTime === 0) {
           video.currentTime = skip.intro;
         } else if (resumeTime > 0) {
@@ -259,14 +204,11 @@
           var msg = document.getElementById('playerMsg');
           if (msg) msg.textContent = '上次看到 ' + formatTime(resumeTime) + '，点击播放继续';
         }
-
         if (!pauseAfterLoad) video.play();
 
-        // 每5秒保存进度，电影同时更新时间标记
         _saveTimer = setInterval(function() {
           if (!video.paused && video.currentTime > 5) {
             saveProgress(_currentEpIdx, video.currentTime);
-            // 电影（单集"播放"）：把时间存为 _title 供卡片展示
             var ep = _episodes[_currentEpIdx];
             if (ep && ep.title === '\u64ad\u653e' && _episodes.length === 1) {
               try { localStorage.setItem(LAST_EP_KEY + '_title', '__time__' + Math.floor(video.currentTime)); } catch(e) {}
@@ -274,7 +216,6 @@
           }
         }, 5000);
 
-        // 拖动进度条后立即保存
         video.addEventListener('seeked', function() {
           if (video.currentTime > 5) {
             saveProgress(_currentEpIdx, video.currentTime);
@@ -285,14 +226,12 @@
           }
         });
 
-        // 跳过片尾 + 自动下一集
-        video.addEventListener('timeupdate', function() {
+        video.addEventListener('timeupdate', function onTU() {
           var skip = getSkip();
           if (skip.outro > 0 && video.duration > 0) {
             var remaining = video.duration - video.currentTime;
             if (remaining <= skip.outro && remaining > 0) {
-              video.removeEventListener('timeupdate', arguments.callee);
-              // 自动播放下一集
+              video.removeEventListener('timeupdate', onTU);
               if (_currentEpIdx > 0) {
                 var msg = document.getElementById('playerMsg');
                 if (msg) msg.textContent = '片尾跳过，即将播放下一集...';
@@ -302,7 +241,6 @@
           }
         });
 
-        // 播放完成自动下一集
         video.addEventListener('ended', function() {
           if (_currentEpIdx > 0) {
             var msg = document.getElementById('playerMsg');
@@ -321,7 +259,6 @@
         video.src = src;
         video.addEventListener('canplay', onReady, { once: true });
       }
-
       window.addEventListener('beforeunload', function() {
         if (video.currentTime > 5) saveProgress(_currentEpIdx, video.currentTime);
       });
@@ -329,31 +266,58 @@
 
     function formatTime(s) {
       s = Math.floor(s);
-      var h = Math.floor(s / 3600);
-      var m = Math.floor((s % 3600) / 60);
-      var sec = s % 60;
+      var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
       if (h > 0) return h + ':' + pad(m) + ':' + pad(sec);
       return pad(m) + ':' + pad(sec);
     }
     function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
-    // 键盘快捷键
+    async function togglePiP() {
+      var video = document.getElementById('videoEl');
+      if (!video) return;
+      try {
+        if (document.pictureInPictureElement) await document.exitPictureInPicture();
+        else await video.requestPictureInPicture();
+      } catch(e) {
+        var msg = document.getElementById('playerMsg');
+        if (msg) { msg.textContent = '浏览器不支持画中画'; setTimeout(function(){ msg.textContent=''; }, 2000); }
+      }
+    }
+
+    var _isFloat = false;
+    function toggleFloat() {
+      var wrap = document.getElementById('playerWrap'), btn = document.getElementById('btnFloat');
+      if (!wrap) return;
+      _isFloat = !_isFloat;
+      wrap.classList.toggle('player-floating', _isFloat);
+      if (btn) btn.textContent = _isFloat ? '⊠ 取消固定' : '⊡ 固定';
+    }
+
+    (function() {
+      var dragging = false, ox = 0, oy = 0;
+      document.addEventListener('mousedown', function(e) {
+        var wrap = document.getElementById('playerWrap');
+        if (!wrap || !wrap.classList.contains('player-floating') || !e.target.closest('#playerWrap')) return;
+        dragging = true; ox = e.clientX - wrap.getBoundingClientRect().left; oy = e.clientY - wrap.getBoundingClientRect().top;
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', function(e) {
+        if (!dragging) return;
+        var wrap = document.getElementById('playerWrap');
+        if (!wrap) return;
+        wrap.style.right = 'auto'; wrap.style.bottom = 'auto';
+        wrap.style.left = (e.clientX - ox) + 'px'; wrap.style.top = (e.clientY - oy) + 'px';
+      });
+      document.addEventListener('mouseup', function() { dragging = false; });
+    })();
+
     document.addEventListener('keydown', function(e) {
-      // 输入框内不触发
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       var video = document.getElementById('videoEl');
       if (!video || !video.src) return;
-
-      if (e.code === 'Space') {
-        e.preventDefault();
-        video.paused ? video.play() : video.pause();
-      } else if (e.code === 'ArrowRight') {
-        e.preventDefault();
-        video.currentTime = Math.min(video.currentTime + 10, video.duration || 0);
-      } else if (e.code === 'ArrowLeft') {
-        e.preventDefault();
-        video.currentTime = Math.max(video.currentTime - 10, 0);
-      }
+      if (e.code === 'Space') { e.preventDefault(); video.paused ? video.play() : video.pause(); }
+      else if (e.code === 'ArrowRight') { e.preventDefault(); video.currentTime = Math.min(video.currentTime + 10, video.duration || 0); }
+      else if (e.code === 'ArrowLeft') { e.preventDefault(); video.currentTime = Math.max(video.currentTime - 10, 0); }
     });
   </script>
 </body>

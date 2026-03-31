@@ -4,13 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>分类 - 影视</title>
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/style.css?v=2">
 </head>
 <body>
   <header id="header"></header>
   <main id="app"><div class="loading">加载中...</div></main>
 
-  <script src="/common.js"></script>
+  <script src="/common.js?v=2"></script>
   <script>
     var params = new URLSearchParams(location.search);
     var type = params.get('type') || '电影';
@@ -30,6 +30,7 @@
           html += paginationHTML(page, data.total, '/category?type=' + encodeURIComponent(type));
         }
         document.getElementById('app').innerHTML = html;
+        sortByFav(document.querySelector('.grid'));
       }).catch(function(e) {
         document.getElementById('app').innerHTML = '<div class="loading">加载失败：' + e.message + '</div>';
       });
