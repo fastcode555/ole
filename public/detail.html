@@ -20,9 +20,9 @@
     var _currentEpIdx = -1;
     var _saveTimer = null;
 
-    // localStorage key
-    var PROGRESS_KEY = 'progress_' + id;   // { epIdx, time }
-    var LAST_EP_KEY  = 'lastep_' + id;     // epIdx
+    var PROGRESS_KEY = 'progress_' + id;
+    var LAST_EP_KEY  = 'lastep_' + id;
+    var SKIP_KEY     = 'skip_settings'; // { intro: 秒, outro: 秒 }
 
     function loadProgress() {
       try { return JSON.parse(localStorage.getItem(PROGRESS_KEY)) || {}; } catch(e) { return {}; }
@@ -37,6 +37,12 @@
       var v = localStorage.getItem(LAST_EP_KEY);
       return v !== null ? parseInt(v) : -1;
     }
+    function getSkip() {
+      try { return JSON.parse(localStorage.getItem(SKIP_KEY)) || { intro: 0, outro: 0 }; } catch(e) { return { intro: 0, outro: 0 }; }
+    }
+    function saveSkip(intro, outro) {
+      try { localStorage.setItem(SKIP_KEY, JSON.stringify({ intro: intro, outro: outro })); } catch(e) {}
+    }
 
     renderHeader(null);
 
@@ -47,7 +53,6 @@
         .then(function(r) { return r.json(); })
         .then(function(d) {
           document.title = d.title + ' - 影视';
-          // 剧集倒序：最新在前
           _episodes = (d.episodes || []).slice().reverse();
 
           var coverEl = d.cover
@@ -57,6 +62,7 @@
           var epCount = _episodes.length;
           var progress = loadProgress();
           var lastEp = progress.epIdx !== undefined ? progress.epIdx : getLastEp();
+          var skip = getSkip();
 
           var epBtns = _episodes.map(function(ep, i) {
             var isLast = (i === lastEp);
@@ -72,10 +78,32 @@
             : '';
 
           var html =
+            // 播放器 + 上下集控制条
             '<div class="player-wrap" id="playerWrap">'
             + '<video id="videoEl" controls playsinline></video>'
             + '</div>'
-            + '<div id="playerMsg" class="player-msg">点击下方集数开始播放</div>'
+            + '<div class="player-controls">'
+            + '<button class="ctrl-btn" onclick="playPrev()" id="btnPrev">⏮ 上一集</button>'
+            + '<div id="playerMsg" class="player-msg"></div>'
+            + '<button class="ctrl-btn" onclick="playNext()" id="btnNext">下一集 ⏭</button>'
+            + '</div>'
+            // 跳过设置
+            + '<div class="skip-settings" id="skipSettings">'
+            + '<span class="skip-label">片头跳过</span>'
+            + '<span class="skip-val" id="introVal">' + (skip.intro > 0 ? formatTime(skip.intro) : '未设置') + '</span>'
+            + '<button class="skip-mark-btn" onclick="markIntro()">▶ 标记当前为片头结束</button>'
+            + '<span class="skip-label" style="margin-left:16px">片尾跳过</span>'
+            + '<span class="skip-val" id="outroVal">' + (skip.outro > 0 ? formatTime(skip.outro) + ' 前' : '未设置') + '</span>'
+            + '<button class="skip-mark-btn" onclick="markOutro()">⏹ 标记当前为片尾开始</button>'
+            + '<button class="skip-clear-btn" onclick="clearSkip()">清除</button>'
+            + '<span id="skipMsg" style="font-size:12px;color:#4caf50;margin-left:8px"></span>'
+            + '<div class="skip-manual">'
+            + '片头 <input class="skip-input" id="skipIntroInput" type="number" min="0" max="600" value="' + skip.intro + '"> 秒'
+            + '<span style="margin:0 8px;color:#555">|</span>'
+            + '片尾 <input class="skip-input" id="skipOutroInput" type="number" min="0" max="600" value="' + skip.outro + '"> 秒'
+            + '<button class="skip-save-btn" onclick="applyManual()">应用</button>'
+            + '</div>'
+            + '</div>'
             + epSection
             + '<div class="detail-header">' + coverEl
             + '<div class="detail-meta"><h1>' + d.title + '</h1>'
@@ -84,19 +112,90 @@
             + '</div></div>';
 
           document.getElementById('app').innerHTML = html;
+          updateNavBtns();
 
-          // 滚动到上次看的集数按钮，或默认加载第一集
           if (lastEp >= 0) {
             var lastBtn = document.getElementById('ep_' + lastEp);
             if (lastBtn) lastBtn.scrollIntoView({ block: 'nearest', inline: 'center' });
             playEp(lastEp, true);
           } else if (_episodes.length > 0) {
-            // 没有记录，加载原始第一集（倒序后是最后一个）
             playEp(_episodes.length - 1, true);
           }
         }).catch(function(e) {
           document.getElementById('app').innerHTML = '<div class="loading">加载失败：' + e.message + '</div>';
         });
+    }
+
+    function updateNavBtns() {
+      var prev = document.getElementById('btnPrev');
+      var next = document.getElementById('btnNext');
+      if (!prev || !next) return;
+      // 倒序列表：idx 0 = 最新集，idx length-1 = 第1集
+      // 上一集 = 更旧 = idx+1；下一集 = 更新 = idx-1
+      prev.disabled = (_currentEpIdx >= _episodes.length - 1);
+      next.disabled = (_currentEpIdx <= 0);
+    }
+
+    function playPrev() {
+      if (_currentEpIdx < _episodes.length - 1) playEp(_currentEpIdx + 1);
+    }
+    function playNext() {
+      if (_currentEpIdx > 0) playEp(_currentEpIdx - 1);
+    }
+
+    function markIntro() {
+      var video = document.getElementById('videoEl');
+      if (!video || !video.src) { showSkipMsg('请先加载视频'); return; }
+      var t = Math.floor(video.currentTime);
+      if (t <= 0) { showSkipMsg('请先拖动到片头结束位置'); return; }
+      var skip = getSkip();
+      saveSkip(t, skip.outro);
+      updateSkipUI(t, skip.outro);
+      showSkipMsg('片头设为 ' + formatTime(t));
+    }
+
+    function markOutro() {
+      var video = document.getElementById('videoEl');
+      if (!video || !video.src) { showSkipMsg('请先加载视频'); return; }
+      if (!video.duration || video.duration === Infinity) { showSkipMsg('视频时长未知，请稍候'); return; }
+      var remaining = Math.floor(video.duration - video.currentTime);
+      if (remaining <= 0) { showSkipMsg('请先拖动到片尾开始位置'); return; }
+      var skip = getSkip();
+      saveSkip(skip.intro, remaining);
+      updateSkipUI(skip.intro, remaining);
+      showSkipMsg('片尾设为最后 ' + formatTime(remaining));
+    }
+
+    function clearSkip() {
+      saveSkip(0, 0);
+      updateSkipUI(0, 0);
+      showSkipMsg('已清除');
+    }
+
+    function applyManual() {
+      var intro = parseInt(document.getElementById('skipIntroInput').value) || 0;
+      var outro = parseInt(document.getElementById('skipOutroInput').value) || 0;
+      saveSkip(intro, outro);
+      updateSkipUI(intro, outro);
+      showSkipMsg('已应用');
+    }
+
+    function updateSkipUI(intro, outro) {
+      var iv = document.getElementById('introVal');
+      var ov = document.getElementById('outroVal');
+      var ii = document.getElementById('skipIntroInput');
+      var oi = document.getElementById('skipOutroInput');
+      if (iv) iv.textContent = intro > 0 ? formatTime(intro) : '未设置';
+      if (ov) ov.textContent = outro > 0 ? formatTime(outro) + ' 前' : '未设置';
+      if (ii) ii.value = intro;
+      if (oi) oi.value = outro;
+    }
+
+    function showSkipMsg(text) {
+      var msg = document.getElementById('skipMsg');
+      if (!msg) return;
+      msg.textContent = text;
+      setTimeout(function() { msg.textContent = ''; }, 2500);
     }
 
     function playEp(idx, pauseAfterLoad) {
@@ -105,18 +204,14 @@
 
       _currentEpIdx = idx;
       saveLastEp(idx);
+      updateNavBtns();
 
-      // 更新按钮状态
       document.querySelectorAll('.ep-btn').forEach(function(b) {
         b.classList.remove('active', 'last-watched');
-        // 还原标题（去掉 ▶）
         b.textContent = b.textContent.replace(' ▶', '');
       });
       var btn = document.getElementById('ep_' + idx);
-      if (btn) {
-        btn.classList.add('active');
-        btn.scrollIntoView({ block: 'nearest', inline: 'center' });
-      }
+      if (btn) { btn.classList.add('active'); btn.scrollIntoView({ block: 'nearest', inline: 'center' }); }
 
       var msg = document.getElementById('playerMsg');
       if (msg) msg.textContent = '加载视频源...';
@@ -142,25 +237,54 @@
       var video = document.getElementById('videoEl');
       if (!video) return;
       if (_hls) { _hls.destroy(); _hls = null; }
-
-      // 清除旧的进度保存定时器
       if (_saveTimer) clearInterval(_saveTimer);
 
       function onReady() {
-        if (resumeTime > 0) {
+        var skip = getSkip();
+
+        // 跳过片头
+        if (skip.intro > 0 && resumeTime === 0) {
+          video.currentTime = skip.intro;
+        } else if (resumeTime > 0) {
           video.currentTime = resumeTime;
           var msg = document.getElementById('playerMsg');
           if (msg) msg.textContent = '上次看到 ' + formatTime(resumeTime) + '，点击播放继续';
         }
-        if (!pauseAfterLoad) {
-          video.play();
-        }
-        // 每5秒保存一次进度
+
+        if (!pauseAfterLoad) video.play();
+
+        // 每5秒保存进度
         _saveTimer = setInterval(function() {
           if (!video.paused && video.currentTime > 5) {
             saveProgress(_currentEpIdx, video.currentTime);
           }
         }, 5000);
+
+        // 跳过片尾 + 自动下一集
+        video.addEventListener('timeupdate', function() {
+          var skip = getSkip();
+          if (skip.outro > 0 && video.duration > 0) {
+            var remaining = video.duration - video.currentTime;
+            if (remaining <= skip.outro && remaining > 0) {
+              video.removeEventListener('timeupdate', arguments.callee);
+              // 自动播放下一集
+              if (_currentEpIdx > 0) {
+                var msg = document.getElementById('playerMsg');
+                if (msg) msg.textContent = '片尾跳过，即将播放下一集...';
+                setTimeout(function() { playEp(_currentEpIdx - 1); }, 1000);
+              }
+            }
+          }
+        });
+
+        // 播放完成自动下一集
+        video.addEventListener('ended', function() {
+          if (_currentEpIdx > 0) {
+            var msg = document.getElementById('playerMsg');
+            if (msg) msg.textContent = '即将播放下一集...';
+            setTimeout(function() { playEp(_currentEpIdx - 1); }, 1500);
+          }
+        }, { once: true });
       }
 
       if (src.includes('.m3u8') && typeof Hls !== 'undefined' && Hls.isSupported()) {
@@ -173,7 +297,6 @@
         video.addEventListener('canplay', onReady, { once: true });
       }
 
-      // 页面关闭/跳转时也保存
       window.addEventListener('beforeunload', function() {
         if (video.currentTime > 5) saveProgress(_currentEpIdx, video.currentTime);
       });
