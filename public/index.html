@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>影视</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header id="header"></header>
+  <main id="app"><div class="loading">加载中...</div></main>
+
+  <script src="/common.js"></script>
+  <script>
+    renderHeader(null);
+
+    fetch('/api/home').then(function(r) { return r.json(); }).then(function(data) {
+      var order = ['电影', '连续剧', '综艺', '动漫'];
+      var html = '';
+      order.forEach(function(cat) {
+        var items = data[cat];
+        if (!items || items.length === 0) return;
+        html += '<div class="section">'
+          + '<div class="section-header">'
+          + '<div class="section-title">' + cat + '</div>'
+          + '<a class="section-more" href="/category?type=' + encodeURIComponent(cat) + '">更多 ›</a>'
+          + '</div>'
+          + '<div class="grid">' + items.map(cardHTML).join('') + '</div>'
+          + '</div>';
+      });
+      document.getElementById('app').innerHTML = html || '<div class="loading">暂无内容</div>';
+    }).catch(function(e) {
+      document.getElementById('app').innerHTML = '<div class="loading">加载失败：' + e.message + '</div>';
+    });
+  </script>
+</body>
+</html>

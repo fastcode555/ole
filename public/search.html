@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>搜索 - 影视</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header id="header"></header>
+  <main id="app"><div class="loading">搜索中...</div></main>
+
+  <script src="/common.js"></script>
+  <script>
+    var params = new URLSearchParams(location.search);
+    var q = params.get('q') || '';
+    var page = parseInt(params.get('page')) || 1;
+
+    document.title = '搜索：' + q + ' - 影视';
+    renderHeader(null);
+
+    // 把搜索词填回输入框
+    window.addEventListener('DOMContentLoaded', function() {
+      var input = document.getElementById('searchInput');
+      if (input) input.value = q;
+    });
+
+    if (!q) {
+      document.getElementById('app').innerHTML = '<div class="loading">请输入搜索词</div>';
+    } else {
+      fetch('/api/search?q=' + encodeURIComponent(q) + '&page=' + page)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var html = '<div class="page-title">搜索：' + q + '</div>';
+          if (!data.items || data.items.length === 0) {
+            html += '<div class="loading">没有找到相关内容</div>';
+          } else {
+            html += '<div class="grid">' + data.items.map(cardHTML).join('') + '</div>';
+            html += paginationHTML(page, null, '/search?q=' + encodeURIComponent(q));
+          }
+          document.getElementById('app').innerHTML = html;
+        }).catch(function(e) {
+          document.getElementById('app').innerHTML = '<div class="loading">搜索失败：' + e.message + '</div>';
+        });
+    }
+  </script>
+</body>
+</html>

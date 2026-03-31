@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>分类 - 影视</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header id="header"></header>
+  <main id="app"><div class="loading">加载中...</div></main>
+
+  <script src="/common.js"></script>
+  <script>
+    var params = new URLSearchParams(location.search);
+    var type = params.get('type') || '电影';
+    var page = parseInt(params.get('page')) || 1;
+
+    document.title = type + ' - 影视';
+    renderHeader(type);
+
+    fetch('/api/list?type=' + encodeURIComponent(type) + '&page=' + page)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var html = '<div class="page-title">' + type + '</div>';
+        if (!data.items || data.items.length === 0) {
+          html += '<div class="loading">暂无内容</div>';
+        } else {
+          html += '<div class="grid">' + data.items.map(cardHTML).join('') + '</div>';
+          html += paginationHTML(page, data.total, '/category?type=' + encodeURIComponent(type));
+        }
+        document.getElementById('app').innerHTML = html;
+      }).catch(function(e) {
+        document.getElementById('app').innerHTML = '<div class="loading">加载失败：' + e.message + '</div>';
+      });
+  </script>
+</body>
+</html>
