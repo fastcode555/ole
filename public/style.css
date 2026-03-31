@@ -443,6 +443,14 @@ main { padding: 24px; max-width: 1400px; margin: 0 auto; }
   gap: 8px;
 }
 
+.now-playing {
+  font-size: 13px;
+  color: #e50914;
+  font-weight: bold;
+  white-space: nowrap;
+  min-width: 60px;
+}
+
 .ctrl-btn {
   background: #2a2a2a;
   border: none;

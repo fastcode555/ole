@@ -73,6 +73,7 @@
           + '<div class="detail-left">'
           + '<div class="player-wrap" id="playerWrap"><video id="videoEl" controls playsinline></video></div>'
           + '<div class="player-controls">'
+          + '<span class="now-playing" id="nowPlaying">—</span>'
           + '<button class="ctrl-btn" onclick="playPrev()" id="btnPrev">⏮ 上一集</button>'
           + '<div id="playerMsg" class="player-msg"></div>'
           + '<button class="ctrl-btn" onclick="togglePiP()">⧉ 悬浮窗</button>'
@@ -93,6 +94,7 @@
           + '片尾 <input class="skip-input" id="skipOutroInput" type="number" min="0" max="600" value="' + skip.outro + '"> 秒'
           + '<button class="skip-save-btn" onclick="applyManual()">应用</button></div>'
           + '</div>'
+          + epSection
           + '</div>'
           + '<div class="detail-right">'
           + coverEl
@@ -103,8 +105,7 @@
           + '</div>'
           + '<p class="detail-desc">' + (d.desc || '暂无简介') + '</p>'
           + '</div>'
-          + '</div>'
-          + epSection;
+          + '</div>';
 
         document.getElementById('app').innerHTML = html;
         updateNavBtns();
@@ -175,6 +176,8 @@
       });
       var btn = document.getElementById('ep_' + idx);
       if (btn) { btn.classList.add('active'); btn.scrollIntoView({ block: 'nearest', inline: 'center' }); }
+      var nowPlaying = document.getElementById('nowPlaying');
+      if (nowPlaying) nowPlaying.textContent = ep.title;
       var msg = document.getElementById('playerMsg');
       if (msg) msg.textContent = '加载视频源...';
       var playPath = ep.url.replace('https://www.olehdtv.com', '');
