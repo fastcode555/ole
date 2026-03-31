@@ -39,19 +39,26 @@ function cardHTML(item) {
     if (id) {
       try {
         var lastTitle = localStorage.getItem('lastep_' + id + '_title');
-        if (lastTitle) watched = lastTitle;
+        if (lastTitle) {
+          if (lastTitle.indexOf('__time__') === 0) {
+            // 电影：显示时间进度
+            watched = '看到 ' + formatTimeShort(parseInt(lastTitle.replace('__time__', '')));
+          } else {
+            watched = '看到 ' + lastTitle;
+          }
+        }
       } catch(e) {}
     }
     var statusHtml = '';
     if (item.status && watched) {
       statusHtml = '<div class="card-status">'
         + '<span>' + item.status + '</span>'
-        + '<span class="card-watched">看到 ' + watched + '</span>'
+        + '<span class="card-watched">' + watched + '</span>'
         + '</div>';
     } else if (item.status) {
       statusHtml = '<div class="card-status">' + item.status + '</div>';
     } else if (watched) {
-      statusHtml = '<div class="card-status"><span class="card-watched">看到 ' + watched + '</span></div>';
+      statusHtml = '<div class="card-status"><span class="card-watched">' + watched + '</span></div>';
     }
     meta += statusHtml;
   }
@@ -79,4 +86,14 @@ function paginationHTML(current, total, baseUrl) {
   if (!totalPages || current < totalPages) html += '<a class="pg-btn" href="' + baseUrl + '&page=' + (current + 1) + '">下一页</a>';
   html += '</div>';
   return html;
+}
+
+function formatTimeShort(s) {
+  s = Math.floor(s);
+  var h = Math.floor(s / 3600);
+  var m = Math.floor((s % 3600) / 60);
+  var sec = s % 60;
+  var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
+  if (h > 0) return h + ':' + pad(m) + ':' + pad(sec);
+  return pad(m) + ':' + pad(sec);
 }

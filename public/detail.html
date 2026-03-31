@@ -35,7 +35,11 @@
         localStorage.setItem(LAST_EP_KEY, epIdx);
         // 同时保存集数标题，供首页/列表卡片展示
         var ep = _episodes[epIdx];
-        if (ep) localStorage.setItem(LAST_EP_KEY + '_title', ep.title);
+        if (ep) {
+          // 电影只有"播放"一集，不存标题，改存进度时间（在loadVideo里更新）
+          var isMovie = (_episodes.length === 1 && ep.title === '播放');
+          if (!isMovie) localStorage.setItem(LAST_EP_KEY + '_title', ep.title);
+        }
       } catch(e) {}
     }
     function getLastEp() {
@@ -258,12 +262,28 @@
 
         if (!pauseAfterLoad) video.play();
 
-        // 每5秒保存进度
+        // 每5秒保存进度，电影同时更新时间标记
         _saveTimer = setInterval(function() {
           if (!video.paused && video.currentTime > 5) {
             saveProgress(_currentEpIdx, video.currentTime);
+            // 电影（单集"播放"）：把时间存为 _title 供卡片展示
+            var ep = _episodes[_currentEpIdx];
+            if (ep && ep.title === '\u64ad\u653e' && _episodes.length === 1) {
+              try { localStorage.setItem(LAST_EP_KEY + '_title', '__time__' + Math.floor(video.currentTime)); } catch(e) {}
+            }
           }
         }, 5000);
+
+        // 拖动进度条后立即保存
+        video.addEventListener('seeked', function() {
+          if (video.currentTime > 5) {
+            saveProgress(_currentEpIdx, video.currentTime);
+            var ep = _episodes[_currentEpIdx];
+            if (ep && ep.title === '\u64ad\u653e' && _episodes.length === 1) {
+              try { localStorage.setItem(LAST_EP_KEY + '_title', '__time__' + Math.floor(video.currentTime)); } catch(e) {}
+            }
+          }
+        });
 
         // 跳过片尾 + 自动下一集
         video.addEventListener('timeupdate', function() {

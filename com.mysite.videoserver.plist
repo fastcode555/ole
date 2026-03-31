@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.mysite.videoserver</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/infinity/.nvm/versions/node/v22.14.0/bin/node</string>
+        <string>/Users/infinity/Code/githubs/ole/server.js</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/infinity/Code/githubs/ole</string>
+
+    <!-- 开机登录后自动启动 -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- 崩溃后自动重启 -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- 日志输出 -->
+    <key>StandardOutPath</key>
+    <string>/Users/infinity/Library/Logs/videoserver.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/infinity/Library/Logs/videoserver.error.log</string>
+</dict>
+</plist>
