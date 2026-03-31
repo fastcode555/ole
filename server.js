@@ -227,4 +227,4 @@ app.get('/api/search', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('running on http://localhost:' + PORT));
+app.listen(PORT, '0.0.0.0', () => console.log('running on http://localhost:' + PORT + ' (LAN: http://192.168.89.149:' + PORT + ')'));
