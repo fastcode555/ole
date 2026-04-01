@@ -192,11 +192,20 @@
         }).catch(function(e) { if (msg) msg.textContent = '加载失败：' + e.message; });
     }
 
+    var _onSeeked = null;
+    var _onTimeUpdate = null;
+    var _onEnded = null;
+
     function loadVideo(src, resumeTime, pauseAfterLoad) {
       var video = document.getElementById('videoEl');
       if (!video) return;
       if (_hls) { _hls.destroy(); _hls = null; }
       if (_saveTimer) clearInterval(_saveTimer);
+
+      // 移除旧的事件监听，防止叠加
+      if (_onSeeked) { video.removeEventListener('seeked', _onSeeked); _onSeeked = null; }
+      if (_onTimeUpdate) { video.removeEventListener('timeupdate', _onTimeUpdate); _onTimeUpdate = null; }
+      if (_onEnded) { video.removeEventListener('ended', _onEnded); _onEnded = null; }
 
       function onReady() {
         var skip = getSkip();
@@ -219,7 +228,7 @@
           }
         }, 5000);
 
-        video.addEventListener('seeked', function() {
+        _onSeeked = function() {
           if (video.currentTime > 5) {
             saveProgress(_currentEpIdx, video.currentTime);
             var ep = _episodes[_currentEpIdx];
@@ -227,14 +236,16 @@
               try { localStorage.setItem(LAST_EP_KEY + '_title', '__time__' + Math.floor(video.currentTime)); } catch(e) {}
             }
           }
-        });
+        };
+        video.addEventListener('seeked', _onSeeked);
 
-        video.addEventListener('timeupdate', function onTU() {
+        _onTimeUpdate = function() {
           var skip = getSkip();
           if (skip.outro > 0 && video.duration > 0) {
             var remaining = video.duration - video.currentTime;
             if (remaining <= skip.outro && remaining > 0) {
-              video.removeEventListener('timeupdate', onTU);
+              video.removeEventListener('timeupdate', _onTimeUpdate);
+              _onTimeUpdate = null;
               if (_currentEpIdx > 0) {
                 var msg = document.getElementById('playerMsg');
                 if (msg) msg.textContent = '片尾跳过，即将播放下一集...';
@@ -242,15 +253,17 @@
               }
             }
           }
-        });
+        };
+        video.addEventListener('timeupdate', _onTimeUpdate);
 
-        video.addEventListener('ended', function() {
+        _onEnded = function() {
           if (_currentEpIdx > 0) {
             var msg = document.getElementById('playerMsg');
             if (msg) msg.textContent = '即将播放下一集...';
             setTimeout(function() { playEp(_currentEpIdx - 1); }, 1500);
           }
-        }, { once: true });
+        };
+        video.addEventListener('ended', _onEnded);
       }
 
       if (src.includes('.m3u8') && typeof Hls !== 'undefined' && Hls.isSupported()) {
