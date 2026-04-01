@@ -170,6 +170,8 @@
       _currentEpIdx = idx;
       saveLastEp(idx);
       updateNavBtns();
+      // 立即清除进度定时器，防止旧进度被写入新集
+      if (_saveTimer) { clearInterval(_saveTimer); _saveTimer = null; }
       document.querySelectorAll('.ep-btn').forEach(function(b) {
         b.classList.remove('active', 'last-watched');
         b.textContent = b.textContent.replace(' ▶', '');
@@ -210,7 +212,14 @@
       function onReady() {
         var skip = getSkip();
         if (skip.intro > 0 && resumeTime === 0) {
-          video.currentTime = skip.intro;
+          // 确保可以设置 currentTime
+          if (video.readyState >= 1) {
+            video.currentTime = skip.intro;
+          } else {
+            video.addEventListener('loadedmetadata', function() {
+              video.currentTime = skip.intro;
+            }, { once: true });
+          }
         } else if (resumeTime > 0) {
           video.currentTime = resumeTime;
           var msg = document.getElementById('playerMsg');
