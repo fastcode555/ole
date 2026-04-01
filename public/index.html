@@ -15,7 +15,7 @@
     renderHeader(null);
 
     fetch('/api/home').then(function(r) { return r.json(); }).then(function(data) {
-      var order = ['电影', '连续剧', '综艺', '动漫'];
+      var order = ['动漫', '电影', '连续剧', '综艺'];
       var html = '';
       order.forEach(function(cat) {
         var items = data[cat];
