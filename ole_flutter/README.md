@@ -94,6 +94,27 @@ fvm flutter build macos --release
 fvm flutter build linux --release
 ```
 
+## 发布 (GitHub Actions)
+
+仓库根目录 `.github/workflows/release.yml` 配置好了三平台并行构建 + 自动发 Release。
+
+**触发方式 1 — 打 tag**：
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+**触发方式 2 — 手动**：到 GitHub 仓库 → Actions → "Build & Release" → Run workflow，自己填 tag 名。
+
+构建大约 10–15 分钟（三平台并行），完成后产物自动挂到 [Releases 页面](../../releases)：
+
+- `ole_flutter-windows-x64.zip` — 解压双击 `ole_flutter.exe`
+- `ole_flutter-macos.zip` — 解压拖到 Applications；首次右键 → 打开（绕过 Gatekeeper，因为没正式签名）
+- `ole_flutter-android.apk` — 用 debug keystore 签的，能 sideload 安装
+
+正式签名（Apple Developer 证书 / Android release keystore）按需后续再加。
+
 ## 目录结构
 
 ```
