@@ -42,16 +42,37 @@ jobs:
         working-directory: ${{ env.PROJECT_PATH }}
         run: flutter build windows --release
 
-      - name: Package zip
+      - name: Resolve version
+        id: ver
         shell: pwsh
         run: |
-          $src = "${{ env.PROJECT_PATH }}\build\windows\x64\runner\Release"
-          Compress-Archive -Path "$src\*" -DestinationPath "$env:GITHUB_WORKSPACE\ole_flutter-windows-x64.zip"
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $v = $env:GITHUB_REF -replace 'refs/tags/v',''
+          } else {
+            $v = '${{ inputs.tag }}' -replace '^v',''
+          }
+          if (-not $v) { $v = '1.0.0' }
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Compile installer (Inno Setup)
+        shell: pwsh
+        # windows-latest 预装了 Inno Setup 6 在 C:\Program Files (x86)\Inno Setup 6\
+        # /D 传宏定义到脚本里
+        run: |
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          & $iscc `
+            /DBuildDir="$env:GITHUB_WORKSPACE\${{ env.PROJECT_PATH }}\build\windows\x64\runner\Release" `
+            /DOutDir="$env:GITHUB_WORKSPACE" `
+            /DAppVersion="${{ steps.ver.outputs.version }}" `
+            "${{ env.PROJECT_PATH }}\windows\installer.iss"
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: ole_flutter-windows-x64.zip
+          path: ole_flutter-windows-setup.exe
           if-no-files-found: error
           retention-days: 7
 
@@ -163,6 +184,6 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            dist/ole_flutter-windows-x64.zip
+            dist/ole_flutter-windows-setup.exe
             dist/ole_flutter-macos.dmg
             dist/ole_flutter-android.apk

@@ -109,7 +109,7 @@ git push origin v0.1.0
 
 构建大约 10–15 分钟（三平台并行），完成后产物自动挂到 [Releases 页面](../../releases)：
 
-- `ole_flutter-windows-x64.zip` — 解压双击 `ole_flutter.exe`
+- `ole_flutter-windows-setup.exe` — Inno Setup 安装器，双击安装到 Program Files，自带桌面/开始菜单快捷方式和卸载入口
 - `ole_flutter-macos.dmg` — 双击挂载后拖 `.app` 到 Applications；首次启动右键 → 打开（绕过 Gatekeeper，因为没正式签名）
 - `ole_flutter-android.apk` — 用 debug keystore 签的，能 sideload 安装
 
