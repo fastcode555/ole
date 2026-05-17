@@ -48,6 +48,19 @@ static void my_application_activate(GApplication* application) {
   }
 
   gtk_window_set_default_size(window, 1280, 800);
+
+  // 从 bundled flutter asset 加载窗口图标。资源在 <exe_dir>/data/flutter_assets/icon.png。
+  {
+    g_autoptr(GError) icon_err = nullptr;
+    g_autofree gchar* exe_path = g_file_read_link("/proc/self/exe", nullptr);
+    if (exe_path != nullptr) {
+      g_autofree gchar* exe_dir = g_path_get_dirname(exe_path);
+      g_autofree gchar* icon_path = g_build_filename(
+          exe_dir, "data", "flutter_assets", "icon.png", nullptr);
+      gtk_window_set_default_icon_from_file(icon_path, &icon_err);
+    }
+  }
+
   gtk_widget_show(GTK_WIDGET(window));
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
