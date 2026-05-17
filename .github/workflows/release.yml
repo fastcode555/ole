@@ -17,7 +17,9 @@ permissions:
   contents: write
 
 env:
-  FLUTTER_VERSION: '3.27.2'
+  # 不锁具体版本，跟 stable 通道走最新稳定版。
+  # 之前锁 3.27.2 → media_kit_video 2.0.1 用了新的 SurfaceProducer.Callback API
+  # （onSurfaceAvailable / onSurfaceCleanup），3.27.2 Android engine 还是旧名，Java 编译挂掉。
   PROJECT_PATH: 'ole_flutter'
 
 jobs:
@@ -29,7 +31,6 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
@@ -62,7 +63,6 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
@@ -74,17 +74,26 @@ jobs:
         working-directory: ${{ env.PROJECT_PATH }}
         run: flutter build macos --release
 
-      - name: Package zip
-        # ditto 是 macOS 官方推荐的 zip 工具，正确保留资源 fork 和符号链接
+      - name: Package DMG
+        # hdiutil 是 macOS 自带工具，做 UDZO 压缩只读 DMG。用户双击 .dmg 即可挂载，
+        # 拖 .app 到 Applications 文件夹完成安装。
         working-directory: ${{ env.PROJECT_PATH }}/build/macos/Build/Products/Release
         run: |
           APP=$(ls -d *.app | head -1)
-          ditto -c -k --sequesterRsrc --keepParent "$APP" "$GITHUB_WORKSPACE/ole_flutter-macos.zip"
+          # 建立一个临时目录放 .app + Applications 软链接，做出"拖拽安装"的视觉效果
+          STAGE=$(mktemp -d)
+          cp -R "$APP" "$STAGE/"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create \
+            -volname "OLE 影视" \
+            -srcfolder "$STAGE" \
+            -ov -format UDZO \
+            "$GITHUB_WORKSPACE/ole_flutter-macos.dmg"
 
       - uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: ole_flutter-macos.zip
+          path: ole_flutter-macos.dmg
           if-no-files-found: error
           retention-days: 7
 
@@ -101,7 +110,6 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
@@ -156,5 +164,5 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             dist/ole_flutter-windows-x64.zip
-            dist/ole_flutter-macos.zip
+            dist/ole_flutter-macos.dmg
             dist/ole_flutter-android.apk

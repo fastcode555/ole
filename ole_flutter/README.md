@@ -110,10 +110,16 @@ git push origin v0.1.0
 构建大约 10–15 分钟（三平台并行），完成后产物自动挂到 [Releases 页面](../../releases)：
 
 - `ole_flutter-windows-x64.zip` — 解压双击 `ole_flutter.exe`
-- `ole_flutter-macos.zip` — 解压拖到 Applications；首次右键 → 打开（绕过 Gatekeeper，因为没正式签名）
+- `ole_flutter-macos.dmg` — 双击挂载后拖 `.app` 到 Applications；首次启动右键 → 打开（绕过 Gatekeeper，因为没正式签名）
 - `ole_flutter-android.apk` — 用 debug keystore 签的，能 sideload 安装
 
+> 注意：只要任何一个平台的 build 失败，整个 release job 会被跳过，Release 页面不会出现新版本。
+> 想确认是哪个 job 失败，到 Actions → 对应 run 详情查看；产物 zip / dmg / apk 也能在那里直接下载到（保留 7 天）。
+
 正式签名（Apple Developer 证书 / Android release keystore）按需后续再加。
+
+CI 的 Flutter 版本跟 stable 通道走最新稳定版，不锁具体版本——这是为了跟得上 media_kit 等
+平台插件的 Flutter Android engine 接口要求。本地用 FVM 时建议 `fvm install stable && fvm use stable` 保持同步。
 
 ## 目录结构
 
