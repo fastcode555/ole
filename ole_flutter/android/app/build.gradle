@@ -10,7 +10,8 @@ android {
     // media_kit_libs_android_video / media_kit_video / screen_brightness_android
     // 最新版要求 compileSdk 36（向后兼容）。
     compileSdk = 36
-    ndkVersion = flutter.ndkVersion
+    // media_kit + shared_preferences + path_provider 等多数插件要求 NDK 27.0.12077973
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

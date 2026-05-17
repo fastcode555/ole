@@ -3,6 +3,19 @@ allprojects {
         google()
         mavenCentral()
     }
+
+    // 强制 Kotlin stdlib 用 2.1.0，与 settings.gradle 里的 KGP 版本对齐。
+    // 否则部分 transitive 会拉到 2.3.x stdlib，与 KGP 2.1.0 编译器的元数据兼容范围冲突，
+    // 出现 "binary version of its metadata is 2.3.0, expected version is 2.1.0" 报错。
+    configurations.all {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == "org.jetbrains.kotlin"
+                && details.requested.name.startsWith("kotlin-stdlib")) {
+                details.useVersion "2.1.0"
+                details.because "Match KGP 2.1.0 set in settings.gradle"
+            }
+        }
+    }
 }
 
 rootProject.buildDir = "../build"
