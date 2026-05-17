@@ -7,6 +7,8 @@ class MainFlutterWindow: NSWindow {
     let windowFrame = self.frame
     self.contentViewController = flutterViewController
     self.setFrame(windowFrame, display: true)
+    // App is always dark — force dark window chrome regardless of system theme.
+    self.appearance = NSAppearance(named: .darkAqua)
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 

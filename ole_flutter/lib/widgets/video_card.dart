@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../core/format.dart';
 import '../core/theme.dart';
+import '../core/update_detector.dart';
 import '../data/models/video_item.dart';
 import '../data/storage/favorites_store.dart';
 import '../data/storage/progress_store.dart';
@@ -19,6 +20,7 @@ class VideoCard extends StatelessWidget {
     final favs = context.watch<FavoritesStore>();
     final faved = favs.isFav(id);
     final watched = id != null ? ProgressStore.watchedLabel(id) : null;
+    final updated = faved && hasUpdate(item);
 
     return GestureDetector(
       onTap: () {
@@ -140,31 +142,61 @@ class VideoCard extends StatelessWidget {
                       color: AppTheme.textPrimary,
                     ),
                   ),
-                  if (item.status.isNotEmpty || watched != null) ...[
+                  // 状态行：更新到X集 + NEW 角标（若有未看新集）
+                  if (item.status.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        if (item.status.isNotEmpty)
-                          Expanded(
-                            child: Text(
-                              item.status,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppTheme.textSecondary,
+                        Flexible(
+                          child: Text(
+                            item.status,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: updated
+                                  ? AppTheme.accentSoft
+                                  : AppTheme.textSecondary,
+                              fontWeight: updated
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                        if (updated) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: AppTheme.accent,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            child: const Text(
+                              'NEW',
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                height: 1.0,
                               ),
                             ),
                           ),
-                        if (watched != null)
-                          Text(
-                            watched,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.accentSoft,
-                            ),
-                          ),
+                        ],
                       ],
+                    ),
+                  ],
+                  // 已看到行：独占一行避免被压缩
+                  if (watched != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      watched,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.accentSoft,
+                      ),
                     ),
                   ],
                   if (item.actors.isNotEmpty) ...[

@@ -27,3 +27,11 @@ String? extractVodId(String? url) {
   final m = RegExp(r'/id/(\d+)').firstMatch(url);
   return m?.group(1);
 }
+
+/// 从"更新至30集" / "第15集" / "更新到第8集" 等字符串里抽集数。
+/// 抽不到（如"已完结"、"高清"、"HD"）就返回 null。
+int? extractEpNum(String? s) {
+  if (s == null || s.isEmpty) return null;
+  final m = RegExp(r'(\d+)').firstMatch(s);
+  return m == null ? null : int.tryParse(m.group(1)!);
+}

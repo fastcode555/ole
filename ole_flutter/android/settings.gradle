@@ -18,8 +18,10 @@ pluginManagement {
 
 plugins {
     id "dev.flutter.flutter-plugin-loader" version "1.0.0"
-    id "com.android.application" version "8.1.0" apply false
-    id "org.jetbrains.kotlin.android" version "1.8.22" apply false
+    id "com.android.application" version "8.7.0" apply false
+    // Kotlin 2.x：media_kit/screen_brightness_android 等插件的 stdlib 是 2.x，
+    // 不升 KGP 编译时会因 metadata 版本不兼容直接挂掉。
+    id "org.jetbrains.kotlin.android" version "2.1.0" apply false
 }
 
 include ":app"

@@ -7,16 +7,18 @@ plugins {
 
 android {
     namespace = "com.barry.ole.ole_flutter"
-    compileSdk = flutter.compileSdkVersion
+    // media_kit_libs_android_video / media_kit_video / screen_brightness_android
+    // 最新版要求 compileSdk 36（向后兼容）。
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
